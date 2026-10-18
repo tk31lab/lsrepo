@@ -36,23 +36,36 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let name_width = rows
-        .iter()
-        .map(|r| r.name.chars().count())
-        .max()
-        .unwrap_or(0);
-    let branch_width = rows
-        .iter()
-        .map(|r| r.branch.chars().count())
-        .max()
-        .unwrap_or(0);
-    for row in &rows {
-        println!(
-            "{:<name_width$}  {:<branch_width$}  {:>3}",
-            row.name, row.branch, row.uncommitted
-        );
+    for line in render(&rows) {
+        println!("{line}");
     }
     ExitCode::SUCCESS
+}
+
+const HEADER: [&str; 3] = ["NAME", "BRANCH", "CHANGES"];
+
+/// 見出し行 + 各行を、列幅をそろえた文字列にする
+fn render(rows: &[Row]) -> Vec<String> {
+    let width = |header: &str, cell: fn(&Row) -> &str| {
+        rows.iter()
+            .map(|r| cell(r).chars().count())
+            .chain([header.chars().count()])
+            .max()
+            .unwrap_or(0)
+    };
+    let name_width = width(HEADER[0], |r| &r.name);
+    let branch_width = width(HEADER[1], |r| &r.branch);
+    let count_width = width(HEADER[2], |r| &r.uncommitted);
+
+    let format = |name: &str, branch: &str, count: &str| {
+        format!("{name:<name_width$}  {branch:<branch_width$}  {count:>count_width$}")
+    };
+    std::iter::once(format(HEADER[0], HEADER[1], HEADER[2]))
+        .chain(
+            rows.iter()
+                .map(|r| format(&r.name, &r.branch, &r.uncommitted)),
+        )
+        .collect()
 }
 
 /// 表示名: root からの相対パス。root 自体がリポジトリならそのディレクトリ名。
@@ -65,4 +78,41 @@ fn display_name(root: &Path, repo: &Path) -> String {
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
         .unwrap_or_else(|| ".".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(name: &str, branch: &str, uncommitted: &str) -> Row {
+        Row {
+            name: name.into(),
+            branch: branch.into(),
+            uncommitted: uncommitted.into(),
+        }
+    }
+
+    #[test]
+    fn render_aligns_with_header() {
+        let rows = [
+            row("proj/app", "feature/long", "12"),
+            row("w", "(detached 9f177c9)", "?"),
+        ];
+        assert_eq!(
+            render(&rows),
+            [
+                "NAME      BRANCH              CHANGES",
+                "proj/app  feature/long             12",
+                "w         (detached 9f177c9)        ?",
+            ]
+        );
+    }
+
+    #[test]
+    fn header_wider_than_cells() {
+        assert_eq!(
+            render(&[row("a", "b", "0")]),
+            ["NAME  BRANCH  CHANGES", "a     b             0"]
+        );
+    }
 }

@@ -5,8 +5,9 @@
 
 ```
 $ lsrepo ~/src
-proj/app  feature/long-branch-name    2
-work      (detached 9f177c9)          0
+NAME      BRANCH                    CHANGES
+proj/app  feature/long-branch-name        2
+work      (detached 9f177c9)              0
 ```
 
 - 名前: 探索ルートからの相対パス(ルート自体がリポジトリならそのディレクトリ名)
